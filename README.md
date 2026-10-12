@@ -2,7 +2,7 @@
 
 A KUAL extension that repairs missing or invalid Kindle cover thumbnails using local cover images, embedded ebook covers, and Google Books as a fallback.
 
-The extension runs in KTerm, displays progress for each book, and writes a log for troubleshooting. The current menu label is `Fix Covers`; runtime messages are in French.
+The extension runs in KTerm, displays progress for each book, and writes a log for troubleshooting. The current menu label is `Fix Covers`.
 
 ## Features
 
@@ -18,9 +18,9 @@ The extension runs in KTerm, displays progress for each book, and writes a log f
 
 ## Warning
 
-This script modifies `/var/local/cc.db` and writes to the Kindle thumbnail directory. It does not create an automatic database backup, provide a restore command, or ask for confirmation before processing.
+This script modifies `/var/local/cc.db` and writes to the Kindle thumbnail directory. It create an automatic database backup before running stored in  `/mnt/us/cc_db_backups/`.
 
-Back up your database and thumbnail directory before use. Database updates are committed per book, so changes made earlier in a run remain if a later book fails. A database rollback does not undo a thumbnail file already written.
+Database updates are committed per book, so changes made earlier in a run remain if a later book fails. A database rollback does not undo a thumbnail file already written.
 
 At startup, the script also deletes top-level `.jpg` and `.jpeg` files in `/mnt/base-us/documents` as legacy temporary-file cleanup. It does not check whether those images were actually created by this extension. Review or back up that directory before running the script.
 
@@ -31,7 +31,7 @@ The conversion workflow is intended for DRM-free sideloaded books. This extensio
 - A Kindle configured to run KUAL extensions.
 - KUAL installed.
 - KTerm installed at `/mnt/us/extensions/kterm`.
-- Python 3.10 or newer at `/usr/bin/python3` for the supplied launcher and type annotations.
+- Python 3.10 or newer at `/mnt/us/python3/python/bin/python3` for the supplied launcher and type annotations.
 - The `requests` and `Pillow` Python packages, with a Pillow version that provides `Image.Resampling.LANCZOS`.
 - Access to the Kindle database and write access to the thumbnail and temporary directories.
 
