@@ -28,9 +28,9 @@ The script is intended to run directly on a Kindle with access to its local cata
 
 It requires:
 
-- Jailbroken Kindle
-- Kual/Kuala/Kual Next
-- Kterm
+- A jailbroken Kindle
+- KUAL/KUALA/KUAL Next
+- KTerm
 - Python 3.10 or later.
 - The `requests` Python package.
 - Pillow, imported as `PIL`.
