@@ -1,6 +1,6 @@
 # Kindle Covers Fixer
 
-An interactive Python script for repairing Kindle book thumbnails using the local `cc.db` catalog.
+An interactive KUAL extension for repairing Kindle books thumbnails using the local `cc.db` catalog.
 
 The script creates a database backup before scanning, lists affected books, and asks for confirmation before repairing them. It separates missing or unreadable thumbnails from readable thumbnails with a height below 500 pixels.
 
