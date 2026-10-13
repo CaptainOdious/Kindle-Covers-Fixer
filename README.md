@@ -1,191 +1,350 @@
 # Kindle Covers Fixer
 
-A KUAL extension that repairs missing or invalid Kindle cover thumbnails using local cover images, embedded ebook covers, and Google Books as a fallback.
+An interactive Python script for repairing Kindle book thumbnails using the local `cc.db` catalog.
 
-The extension runs in KTerm, displays progress for each book, and writes a log for troubleshooting. The current menu label is `Fix Covers`.
+The script creates a database backup before scanning, lists affected books, and asks for confirmation before repairing them. It separates missing or unreadable thumbnails from readable thumbnails with a height below 500 pixels.
 
 ## Features
 
-- Skips existing thumbnails that are fully readable and exactly 500 pixels high.
-- Tries three cover sources in order: `p_cover`, an embedded ebook cover, then Google Books.
-- Extracts covers directly from EPUB files.
-- Uses Bokai to convert KFX, AZW3/KF8, and MOBI/AZW files to temporary EPUB files for cover extraction.
-- Generates grayscale JPEG thumbnails with a height of 500 pixels, proportional width, and quality 80.
-- Saves generated thumbnails as `/mnt/us/system/thumbnails/<p_uuid>.jpg`.
-- Updates the corresponding `Entries.p_thumbnail` database field.
-- Removes temporary working files after processing each book.
-- Reports totals for updated, already valid, unchanged, and failed entries.
-
-## Warning
-
-This script modifies `/var/local/cc.db` and writes to the Kindle thumbnail directory. It create an automatic database backup before running stored in  `/mnt/us/cc_db_backups/`.
-
-Database updates are committed per book, so changes made earlier in a run remain if a later book fails. A database rollback does not undo a thumbnail file already written.
-
-At startup, the script also deletes top-level `.jpg` and `.jpeg` files in `/mnt/base-us/documents` as legacy temporary-file cleanup. It does not check whether those images were actually created by this extension. Review or back up that directory before running the script.
-
-The conversion workflow is intended for DRM-free sideloaded books. This extension does not implement DRM removal.
+- Explicit confirmation before backing up and scanning the catalog.
+- Automatic backup of `cc.db` before any repair.
+- Two independently confirmed repair phases:
+  1. Missing or unreadable thumbnails.
+  2. Readable thumbnails with a height below 500 pixels.
+- Cover retrieval from three sources, in this order:
+  1. The local cover referenced by `p_cover`.
+  2. A cover embedded in the book file.
+  3. Google Books.
+- Temporary EPUB conversion through Bokai for supported non-EPUB formats.
+- Generated thumbnails saved as 500-pixel-high grayscale JPEG images.
+- Database updates grouped into one transaction per repair phase.
+- A persistent journal recording created or replaced thumbnail files.
+- Console output and file logging.
+- Optional Kindle restart at the end.
 
 ## Requirements
 
-- A Kindle configured to run KUAL extensions.
-- KUAL installed.
-- KTerm installed at `/mnt/us/extensions/kterm`.
-- Python 3.10 or newer at `/mnt/us/python3/python/bin/python3` for the supplied launcher and type annotations.
-- The `requests` and `Pillow` Python packages, with a Pillow version that provides `Image.Resampling.LANCZOS`.
-- Access to the Kindle database and write access to the thumbnail and temporary directories.
+The script is intended to run directly on a Kindle with access to its local catalog and filesystem.
 
-Optional dependencies:
+It requires:
 
-- Bokai at `/mnt/us/extensions/bokai/bin/bokai` for embedded-cover extraction from supported non-EPUB formats.
-- Internet access for Google Books searches and downloads.
-- A Google Books API key, supplied through `GOOGLE_BOOKS_API_KEY`, if desired.
+- Python 3.10 or later.
+- The `requests` Python package.
+- Pillow, imported as `PIL`.
+- Read and write access to `/var/local/cc.db`.
+- Write access to the backup, thumbnail, and temporary directories.
+- An interactive terminal for confirmation prompts.
 
-Bokai is not needed for direct EPUB extraction or for a usable local `p_cover`. Google Books is attempted only after local sources fail.
+Optional:
 
-Compatibility depends on the device environment and database schema. No tested device or firmware compatibility list is supplied with these files.
+- Bokai for extracting covers from KFX, AZW3, KF8, MOBI, and AZW files through temporary EPUB conversion.
+- An internet connection for the Google Books fallback.
+- A Google Books API key supplied through `GOOGLE_BOOKS_API_KEY`.
+
+The default interpreter path is:
+
+```text
+/mnt/us/python3/python/bin/python3
+```
+
+Package installation depends on the Python environment installed on your Kindle.
 
 ## Installation
 
-Copy the extension files to the following structure:
+1. Copy `fix_covers.py` to your Kindle.
+2. Verify that the required Python packages are available.
+3. Review the configuration section and adjust paths if necessary.
+4. If you intend to use Bokai, verify that its executable is available at:
 
-```text
-/mnt/us/extensions/fixcovers/
-├── config.xml
-├── menu.json
-└── bin/
-    ├── run_in_kterm.sh
-    └── fix_covers.py
-```
+   ```text
+   /mnt/us/extensions/bokai/bin/bokai
+   ```
 
-The folder name and paths matter: the launcher uses hard-coded paths.
-
-From a Kindle shell, make the launcher executable:
-
-```sh
-chmod +x /mnt/us/extensions/fixcovers/bin/run_in_kterm.sh
-```
-
-Ensure that `/usr/bin/python3` can import the required packages:
-
-```sh
-/usr/bin/python3 -c "import requests; from PIL import Image; print(Image.Resampling.LANCZOS)"
-```
-
-If your Python installation uses another path, edit `PYTHON_BIN` in `bin/run_in_kterm.sh`. Install the dependencies in that interpreter's environment.
+5. Open an interactive terminal, such as KTerm, and run the script.
 
 ## Usage
 
-### From KUAL
+From the directory containing the script:
 
-1. Open KUAL.
-2. Select `Fix Covers`.
-3. Follow progress in KTerm.
-4. Review the final summary.
-5. Press Enter to close the terminal window.
-
-Processing starts immediately; there is no confirmation prompt.
-
-### From a terminal
-
-```sh
-/usr/bin/python3 /mnt/us/extensions/fixcovers/bin/fix_covers.py
+```bash
+/mnt/us/python3/python/bin/python3 fix_covers.py
 ```
 
-The script uses configuration constants rather than command-line options. It does not offer a dry-run mode, book selector, or backup/restore mode.
+Alternatively, if `python3` points to a compatible interpreter:
 
-### Optional Google Books API key
+```bash
+python3 fix_covers.py
+```
 
-For a direct terminal run:
+To supply an optional Google Books API key:
 
-```sh
+```bash
 export GOOGLE_BOOKS_API_KEY="YOUR_API_KEY"
-/usr/bin/python3 /mnt/us/extensions/fixcovers/bin/fix_covers.py
+python3 fix_covers.py
 ```
 
-For a KUAL launch, the variable must be present in the launcher's environment. Exporting it in a separate terminal session does not configure that environment automatically.
+Only `y` or `yes`, case-insensitively, confirms an action. Pressing Enter without an answer declines it.
 
-## How it works
+## Workflow
 
-### 1. Select database entries
+### Initial confirmation and backup
 
-The script reads `Entries` from `/var/local/cc.db` using:
+The script first asks:
+
+```text
+Do you want to back up cc.db and scan for books with missing or unreadable thumbnails? [y/N]:
+```
+
+If you decline, the backup, catalog scan, and repair phases do not run.
+
+If you accept, the script creates a database backup using SQLite's backup API. It then compares the number of entries in the backup with the source database.
+
+This row-count comparison is a basic verification, not a full database integrity check.
+
+If backup creation or verification fails, the script stops before repairing any books.
+
+### Phase 1: Missing or unreadable thumbnails
+
+The script reads catalog entries matching:
 
 ```sql
-WHERE p_isArchived = 0
-  AND p_contentSize > 0
+p_isArchived = 0 AND p_contentSize > 0
 ```
 
-Entries without a UUID or title are counted as errors and skipped. Selection is based on these database fields, not on a separate DRM or sideloaded-book check.
+Entries without a UUID or title are excluded from the repair lists.
 
-### 2. Validate the current thumbnail
+A book is selected when:
 
-A thumbnail is accepted if the image can be fully decoded and its height is exactly 500 pixels. Its width is not checked.
+- Its `p_thumbnail` field is empty.
+- The referenced thumbnail file does not exist.
+- The referenced file cannot be opened and fully decoded as an image.
 
-An accepted thumbnail is left unchanged, even if it is not named after the UUID or does not show the expected cover artwork.
+Thumbnail height is not a selection criterion in this phase.
 
-### 3. Try cover sources in order
+The script displays the selected books and asks:
 
-1. Local `p_cover`: use the referenced image if it is readable and at least 100 × 100 pixels.
-2. Embedded cover: read EPUB cover declarations, or convert a supported non-EPUB file to a temporary EPUB using Bokai before extracting its cover.
-3. Google Books: search using the title, author, and publication year when available, then require matching metadata before downloading a cover.
+```text
+Do you want to repair these N books? [y/N]:
+```
 
-Google Books requires a title, author, and publisher. Matching uses normalized titles, author matching with a reversed-name allowance, publisher matching with limited prefix normalization, and an exact year match when the local year is known. This conservative matching can leave some books unchanged.
+Only the confirmed list is processed. Declining this phase does not prevent the script from offering phase 2.
 
-### 4. Generate and register a thumbnail
+### Phase 2: Readable thumbnails below 500 pixels
 
-The chosen cover is orientation-corrected, resized to 500 pixels high while preserving its aspect ratio, and saved as a grayscale JPEG at quality 80. Already monochrome images remain monochrome, but are still resized and re-encoded.
+The script separately identifies thumbnails that can be decoded and whose height is strictly below 500 pixels.
 
-The thumbnail is written to:
+- Height below 500 pixels: eligible.
+- Height exactly 500 pixels: excluded.
+- Height above 500 pixels: excluded.
+- Missing or unreadable image: excluded from this phase.
+
+The selected books are listed, and the script asks for confirmation before processing them.
+
+The current implementation uses the catalog rows loaded during the initial scan rather than reading `cc.db` again between phases. It checks image dimensions when building the second list.
+
+### Database update and cleanup
+
+For each accepted repair phase:
+
+1. The script attempts to generate replacement thumbnails.
+2. Successful thumbnail paths are collected.
+3. The corresponding `p_thumbnail` values are updated in one SQLite transaction.
+4. A phase summary is displayed.
+5. The legacy JPG cleanup runs if the phase completes without a database update failure.
+
+If no replacement thumbnails are generated, the current implementation still runs the cleanup after an accepted phase.
+
+### Optional restart
+
+At the end of a completed run, the script asks:
+
+```text
+Restart the Kindle now? [y/N]:
+```
+
+Accepting invokes `reboot`. Declining leaves the Kindle running and displays a reminder to restart it to reload the catalog.
+
+The script then waits for Enter before closing the terminal window.
+
+## Cover Retrieval
+
+### 1. Local cover: `p_cover`
+
+The script first checks the file referenced by `p_cover`.
+
+A source cover must:
+
+- Exist.
+- Be readable as an image.
+- Have a width of at least 100 pixels.
+- Have a height of at least 100 pixels.
+
+### 2. Embedded book cover
+
+For EPUB files, the script looks for:
+
+- An EPUB 3 `cover-image` manifest property.
+- An EPUB 2 cover metadata declaration.
+- As a fallback, an image manifest entry whose ID or filename contains `cover`.
+
+For supported non-EPUB formats, the script uses Bokai to create a temporary EPUB and attempts to extract its cover.
+
+| Book format | Extraction method |
+| --- | --- |
+| EPUB | Direct cover extraction |
+| KFX | Bokai conversion to EPUB |
+| AZW3 / KF8 | Bokai conversion to EPUB |
+| MOBI / AZW | Bokai conversion to EPUB |
+
+Extraction is not guaranteed. It depends on the input file and, where applicable, Bokai's ability to convert it.
+
+### 3. Google Books
+
+If no usable local or embedded cover is found, the script searches Google Books.
+
+A result is accepted only when its metadata matches the local book:
+
+- Title.
+- Author.
+- Publisher.
+- Publication year, when the local year is available.
+
+If the title, author, or publisher is missing, the Google Books search is skipped.
+
+These matching rules are intentionally restrictive. A book may remain unchanged even when Google Books has a visually suitable cover with different metadata.
+
+## Generated Thumbnails
+
+Replacement thumbnails are written to:
 
 ```text
 /mnt/us/system/thumbnails/<p_uuid>.jpg
 ```
 
-The script updates `p_thumbnail` for that UUID and commits the database change. If no usable cover is found, the book is left unchanged.
+Output settings:
 
-## Files
+| Property | Value |
+| --- | --- |
+| Format | JPEG |
+| Height | 500 pixels |
+| Width | Calculated to preserve the source aspect ratio |
+| Color | Grayscale |
+| JPEG quality | 80 |
+| Optimization | Enabled |
+| Progressive encoding | Enabled |
 
-| File | Purpose |
-|---|---|
-| `config.xml` | KUAL extension metadata; version 1.0. |
-| `menu.json` | Defines the `Fix Covers` menu action. |
-| `bin/run_in_kterm.sh` | Checks KTerm and script paths, then starts Python inside KTerm. |
-| `bin/fix_covers.py` | Finds covers, generates thumbnails, updates the database, and logs progress. |
+The script applies EXIF orientation before resizing.
 
-## Configuration and paths
+The 500-pixel output height remains a generation setting. It does not determine whether a thumbnail is missing or unreadable in phase 1.
+
+## Paths and Configuration
+
+The main settings are defined near the top of the script.
 
 | Setting | Default |
-|---|---|
+| --- | --- |
 | Database | `/var/local/cc.db` |
+| Catalog table | `Entries` |
+| Database backup directory | `/mnt/us/documents/ccdb_reset_backups` |
 | Thumbnail directory | `/mnt/us/system/thumbnails` |
-| Temporary working root | `/mnt/base-us` |
+| Temporary root | `/mnt/base-us` |
 | Log file | `/mnt/base-us/fixcovers.log` |
+| Rollback journal directory | `/mnt/base-us/fixcovers_backups` |
 | Bokai executable | `/mnt/us/extensions/bokai/bin/bokai` |
-| Bokai conversion timeout | 300 seconds |
-| Thumbnail height | 500 pixels |
-| JPEG quality | 80 |
+| Bokai timeout | 300 seconds |
+| Generated thumbnail height | 500 pixels |
 | Minimum source dimensions | 100 × 100 pixels |
-| HTTP connect/read timeouts | 10 / 30 seconds |
 
-Edit the constants in `bin/fix_covers.py` to change these settings. Launcher paths are configured separately in `bin/run_in_kterm.sh`.
+Database backups use this naming pattern:
 
-## Troubleshooting
+```text
+cc.db.backup-YYYYMMDD-HHMMSS.sqlite
+```
 
-- KTerm is missing: check that `/mnt/us/extensions/kterm/bin/kterm.sh` exists and is executable.
-- Fix Covers script is missing: verify the installation structure and folder name.
-- Python or imports fail: check the interpreter path and install `requests` and Pillow for that interpreter.
-- Bokai extraction fails: verify the executable path, supported input format, and conversion output in the log. A conversion can time out after 300 seconds.
-- Google Books finds nothing: check connectivity and metadata. Missing author or publisher information prevents this fallback, and strict matching can reject other editions.
-- A wrong cover is skipped: the existing-thumbnail check validates decoding and height, not the artwork itself.
-- Database operations fail: inspect the log for SQLite errors and confirm that the database contains the expected columns. The script does not implement the trigger-removal workaround used by some other Kindle tools.
+## Backups and Recovery Journal
 
-The script does not restart the Kindle or explicitly refresh the library interface after processing.
+Each run that passes the initial confirmation creates:
 
-## Privacy
+- A backup of `cc.db`.
+- A run-specific JSON journal.
+- Copies of existing destination thumbnails before they are replaced, when applicable.
 
-When the Google Books fallback is used, the script sends search metadata, including title, author, and publication year when available, to Google Books and downloads a cover image. Local-source processing does not require these requests.
+The journal records information including:
 
-## License
+- The database backup path and SHA-256 hash.
+- Thumbnail destination paths.
+- Whether a thumbnail was newly created.
+- The location and hash of an original thumbnail backup.
+- The expected hash of the replacement image.
+- Whether installation of the image completed.
 
-No license file was included with the supplied extension files. Add a `LICENSE` file specifying your chosen terms before distributing this project.
+The script does not provide an automatic restore command.
+
+If a database transaction fails, SQLite rolls back that transaction. However, thumbnail files may already have been created or replaced before the database update started. Database rollback does not automatically restore those filesystem changes.
+
+Keep the database backup and the associated journal together if recovery is needed.
+
+## Temporary Files and Cleanup
+
+Per-book working directories and temporary Bokai conversion directories are removed after use.
+
+The separate legacy cleanup targets:
+
+```text
+/mnt/base-us/documents
+```
+
+It deletes top-level files with a `.jpg` or `.jpeg` extension, case-insensitively.
+
+Important:
+
+- This cleanup does not distinguish extracted temporary images from other JPG files in that directory.
+- Do not store images you want to keep in the cleanup directory.
+- Subdirectories are not traversed.
+- Database backups and rollback journal files are retained.
+
+Review this path on your device before running the script, including whether it aliases another documents directory.
+
+## Database Handling
+
+The Kindle catalog uses SQLite features that may not be available in the bundled Python SQLite environment.
+
+The script therefore:
+
+- Uses `NOT INDEXED` for catalog reads.
+- Avoids `PRAGMA integrity_check` and `PRAGMA quick_check`.
+- Temporarily removes the table's UPDATE triggers inside the update transaction.
+- Restores those triggers before committing.
+- Checks that the expected number of rows was updated.
+- Checks that the expected trigger names were restored.
+
+Trigger removal, thumbnail-path updates, and trigger restoration occur within the same transaction.
+
+## Logging
+
+Progress appears in the terminal and is written to:
+
+```text
+/mnt/base-us/fixcovers.log
+```
+
+Each repair phase reports:
+
+- Updated books.
+- Books left unchanged because no usable cover was found.
+- Errors.
+
+Books outside the confirmed repair lists are not passed to the cover-repair function.
+
+## Limitations and Safety Notes
+
+- The script directly modifies the Kindle catalog and thumbnail files.
+- The initial scan still reads eligible catalog entries to identify affected books; it does not repair the entire library.
+- Filesystem replacement and database updates are not one atomic operation.
+- The backup verification checks row counts, not full database integrity.
+- The script does not automatically restore a backup after a failure.
+- The legacy cleanup deletes all matching top-level JPG/JPEG files in its target directory.
+- Initialization creates working directories and configures file logging before the first confirmation prompt.
+- Compatibility depends on the Kindle filesystem layout, catalog schema, Python environment, and available conversion tools.
+
+Review the configuration and keep the generated backups before using the script on your library.
