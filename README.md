@@ -28,12 +28,14 @@ The script is intended to run directly on a Kindle with access to its local cata
 
 It requires:
 
+- Jailbroken Kindle
+- Kual/Kuala/Kual Next
+- Kterm
 - Python 3.10 or later.
 - The `requests` Python package.
 - Pillow, imported as `PIL`.
 - Read and write access to `/var/local/cc.db`.
 - Write access to the backup, thumbnail, and temporary directories.
-- An interactive terminal for confirmation prompts.
 
 Optional:
 
@@ -51,7 +53,7 @@ Package installation depends on the Python environment installed on your Kindle.
 
 ## Installation
 
-1. Copy `fix_covers.py` to your Kindle.
+1. Copy `fix_covers` folder to your Kindle into `/mnt/us/extensions`.
 2. Verify that the required Python packages are available.
 3. Review the configuration section and adjust paths if necessary.
 4. If you intend to use Bokai, verify that its executable is available at:
@@ -60,7 +62,7 @@ Package installation depends on the Python environment installed on your Kindle.
    /mnt/us/extensions/bokai/bin/bokai
    ```
 
-5. Open an interactive terminal, such as KTerm, and run the script.
+5. Open the script from KUAL or directly with an interactive terminal, such as KTerm, and run the script.
 
 ## Usage
 
