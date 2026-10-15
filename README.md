@@ -351,7 +351,7 @@ Books outside the confirmed repair lists are not passed to the cover-repair func
 
 Review the configuration and keep the generated backups before using the script on your library.
 
-## Licence
+## License
 
-Ce projet est distribué sous les termes de la licence  
+This project is licensed under the terms of the  
 [GNU General Public License v3.0](./LICENSE).
