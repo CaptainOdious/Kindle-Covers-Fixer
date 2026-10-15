@@ -350,3 +350,8 @@ Books outside the confirmed repair lists are not passed to the cover-repair func
 - Compatibility depends on the Kindle filesystem layout, catalog schema, Python environment, and available conversion tools.
 
 Review the configuration and keep the generated backups before using the script on your library.
+
+## Licence
+
+Ce projet est distribué sous les termes de la licence  
+[GNU General Public License v3.0](./LICENSE).
